@@ -1,6 +1,4 @@
 import socket
-import sys
-import time
 
 server_socket = socket.socket()
 hostname = socket.gethostname()
