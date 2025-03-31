@@ -4,15 +4,14 @@ import threading
 # List to store active client connections
 clients = []
 
-def broadcast(message, sender_connection):
-    """Send a message to all clients except the sender."""
+def broadcast(message, sender_connection=None):
+    """Send a message to all clients, including the sender."""
     for client in clients:
-        if client != sender_connection:
-            try:
-                client.send(message)
-            except:
-                # Remove the client if sending fails
-                clients.remove(client)
+        try:
+            client.send(message)
+        except:
+            # Remove the client if sending fails
+            clients.remove(client)
 
 def handle_client(connection, address):
     """Handle communication with a single client."""
@@ -20,7 +19,7 @@ def handle_client(connection, address):
     try:
         client_name = connection.recv(1024).decode()
         print(f"{client_name} has joined the chat.")
-        broadcast(f"{client_name} has joined the chat.".encode(), connection)
+        broadcast(f"{client_name} has joined the chat.".encode())
         clients.append(connection)
 
         while True:
@@ -28,8 +27,9 @@ def handle_client(connection, address):
                 message = connection.recv(1024)
                 if not message:
                     break
-                print(f"{client_name}: {message.decode()}")
-                broadcast(f"{client_name}: {message.decode()}".encode(), connection)
+                decoded_message = message.decode()
+                print(f"{client_name}: {decoded_message}")
+                broadcast(f"{client_name}: {decoded_message}".encode())
             except ConnectionResetError:
                 break
     finally:
@@ -37,7 +37,7 @@ def handle_client(connection, address):
         if connection in clients:
             clients.remove(connection)
         print(f"{client_name} has left the chat.")
-        broadcast(f"{client_name} has left the chat.".encode(), connection)
+        broadcast(f"{client_name} has left the chat.".encode())
         connection.close()
 
 # Server setup
