@@ -4,9 +4,11 @@ import threading
 # List to store active client connections
 clients = []
 
-def broadcast(message, sender_connection=None):
+def broadcast(message, sender_connection=None): # must have sender_connection to not relay back to sender 
     """Send a message to all clients, including the sender."""
     for client in clients:
+        if (client == sender_connection):
+            continue
         try:
             client.send(message)
         except:
@@ -19,7 +21,7 @@ def handle_client(connection, address):
     try:
         client_name = connection.recv(1024).decode()
         print(f"{client_name} has joined the chat.")
-        broadcast(f"{client_name} has joined the chat.".encode())
+        broadcast(f"{client_name} has joined the chat.".encode(), connection)
         clients.append(connection)
 
         while True:
@@ -29,7 +31,7 @@ def handle_client(connection, address):
                     break
                 decoded_message = message.decode()
                 print(f"{client_name}: {decoded_message}")
-                broadcast(f"{client_name}: {decoded_message}".encode())
+                broadcast(f"{client_name}: {decoded_message}".encode(), connection)
             except ConnectionResetError:
                 break
     finally:
@@ -37,7 +39,7 @@ def handle_client(connection, address):
         if connection in clients:
             clients.remove(connection)
         print(f"{client_name} has left the chat.")
-        broadcast(f"{client_name} has left the chat.".encode())
+        broadcast(f"{client_name} has left the chat.".encode()) # doesnt need connection since it wont relay back since it isnt in clients
         connection.close()
 
 # Server setup

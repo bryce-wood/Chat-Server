@@ -1,66 +1,65 @@
 import socket
 import threading
-import curses
+import tkinter as tk
+from tkinter import scrolledtext
 
-def receive_messages(server_socket, chat_window, lock):
+def receive_messages(server_socket, chat_display):
     """Receive messages from the server and display them in the chat window."""
     while True:
         try:
             message = server_socket.recv(1024).decode()
             if not message:
                 break
-            with lock:
-                chat_window.addstr(f"{message}\n")
-                chat_window.refresh()
+            chat_display.config(state=tk.NORMAL)
+            chat_display.insert(tk.END, f"{message}\n")
+            chat_display.config(state=tk.DISABLED)
+            chat_display.see(tk.END)
         except ConnectionResetError:
-            with lock:
-                chat_window.addstr("Connection lost.\n")
-                chat_window.refresh()
+            chat_display.config(state=tk.NORMAL)
+            chat_display.insert(tk.END, "Connection lost.\n")
+            chat_display.config(state=tk.DISABLED)
+            chat_display.see(tk.END)
             break
 
-def send_messages(server_socket, input_window, chat_window, lock):
-    """Send messages to the server."""
-    while True:
-        with lock:
-            input_window.clear()
-            input_window.addstr("Me: ")
-            input_window.refresh()
-        message = input_window.getstr().decode()
-        with lock:
-            chat_window.addstr(f"Me: {message}\n")  # Display the user's message in the chat window
-            chat_window.refresh()
+def send_message(server_socket, message_entry, chat_display):
+    """Send a message to the server."""
+    message = message_entry.get()
+    if message.strip():
+        chat_display.config(state=tk.NORMAL)
+        chat_display.insert(tk.END, f"Me: {message}\n")
+        chat_display.config(state=tk.DISABLED)
+        chat_display.see(tk.END)
         try:
             server_socket.send(message.encode())
         except ConnectionResetError:
-            with lock:
-                chat_window.addstr("Connection lost.\n")
-                chat_window.refresh()
-            break
+            chat_display.config(state=tk.NORMAL)
+            chat_display.insert(tk.END, "Connection lost.\n")
+            chat_display.config(state=tk.DISABLED)
+            chat_display.see(tk.END)
+        message_entry.delete(0, tk.END)
 
-def chat_client(stdscr, server_socket):
-    """Main function to handle the chatroom interface."""
-    curses.curs_set(1)  # Enable the cursor
-    stdscr.clear()
+def chat_client(server_socket):
+    """Create the chatroom GUI."""
+    root = tk.Tk()
+    root.title("Chat Client")
 
-    # Create windows for chat and input
-    height, width = stdscr.getmaxyx()
-    chat_window = curses.newwin(height - 3, width, 0, 0)
-    input_window = curses.newwin(3, width, height - 3, 0)
+    # Chat display area
+    chat_display = scrolledtext.ScrolledText(root, state=tk.DISABLED, wrap=tk.WORD, height=20, width=50)
+    chat_display.grid(row=0, column=0, columnspan=2, padx=10, pady=10)
 
-    # Lock for thread-safe updates to the chat window
-    lock = threading.Lock()
+    # Message entry field
+    message_entry = tk.Entry(root, width=40)
+    message_entry.grid(row=1, column=0, padx=10, pady=10)
+    message_entry.bind("<Return>", lambda event: send_message(server_socket, message_entry, chat_display))
 
-    # Start threads for receiving and sending messages
-    receive_thread = threading.Thread(target=receive_messages, args=(server_socket, chat_window, lock))
-    send_thread = threading.Thread(target=send_messages, args=(server_socket, input_window, chat_window, lock))
-    receive_thread.daemon = True
-    send_thread.daemon = True
-    receive_thread.start()
-    send_thread.start()
+    # Send button
+    send_button = tk.Button(root, text="Send", command=lambda: send_message(server_socket, message_entry, chat_display))
+    send_button.grid(row=1, column=1, padx=10, pady=10)
 
-    # Wait for threads to finish
-    receive_thread.join()
-    send_thread.join()
+    # Start a thread to receive messages
+    threading.Thread(target=receive_messages, args=(server_socket, chat_display), daemon=True).start()
+
+    root.mainloop()
 
 def main():
     server_socket = socket.socket()
@@ -75,8 +74,8 @@ def main():
     server_socket.connect((server_host, port))
     server_socket.send(name.encode())
 
-    # Start the curses interface
-    curses.wrapper(chat_client, server_socket)
+    # Start the GUI chat client
+    chat_client(server_socket)
 
 if __name__ == "__main__":
     main()
