@@ -4,16 +4,14 @@ import threading
 # List to store active client connections
 clients = []
 
-def broadcast(message, sender_connection=None): # must have sender_connection to not relay back to sender 
-    """Send a message to all clients, including the sender."""
+def broadcast(message, sender_connection=None):
+    """Send a message to all clients."""
     for client in clients:
-        if (client == sender_connection):
-            continue
-        try:
-            client.send(message)
-        except:
-            # Remove the client if sending fails
-            clients.remove(client)
+        if client != sender_connection:
+            try:
+                client.send(message)
+            except:
+                clients.remove(client)
 
 def handle_client(connection, address):
     """Handle communication with a single client."""
@@ -26,20 +24,27 @@ def handle_client(connection, address):
 
         while True:
             try:
-                message = connection.recv(1024)
-                if not message:
-                    break
-                decoded_message = message.decode()
-                print(f"{client_name}: {decoded_message}")
-                broadcast(f"{client_name}: {decoded_message}".encode(), connection)
+                message = connection.recv(1024).decode()
+                if message.startswith("TYPING:"):
+                    broadcast(message.encode(), connection)
+                elif message.startswith("REACTION:"):
+                    # Parse the reaction message
+                    try:
+                        log_message = f"Reaction received: '{message.strip().split(':')[-1]}' to message: '{message.strip()[message.find(':')+1:message.rfind(':')]}'"
+                        print(log_message)  # Log the reaction in the server console
+                        broadcast(message.encode(), connection)
+                    except ValueError:
+                        print("Error: Malformed REACTION message received.")
+                else:
+                    print(f"{client_name}: {message}")
+                    broadcast(f"{client_name}: {message}".encode(), connection)
             except ConnectionResetError:
                 break
     finally:
-        # Remove the client from the list and notify others
         if connection in clients:
             clients.remove(connection)
         print(f"{client_name} has left the chat.")
-        broadcast(f"{client_name} has left the chat.".encode()) # doesnt need connection since it wont relay back since it isnt in clients
+        broadcast(f"{client_name} has left the chat.".encode())
         connection.close()
 
 # Server setup
