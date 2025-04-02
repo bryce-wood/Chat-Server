@@ -46,7 +46,8 @@ def handle_client(connection, address):
                 elif message.startswith("REACTION:"):
                     # Parse and log reaction messages
                     try:
-                        _, original_message, reaction = message.split(":", 2)
+                        reaction = message.rsplit(":",1)[-1]
+                        original_message = message.rsplit(":",1)[0].split(":",1)[-1]
                         log_message = f"Reaction received: '{reaction.strip()}' to message: '{original_message.strip()}'"
                         print(log_message)  # Log the reaction in the server console
                         broadcast(message.encode(), connection)
