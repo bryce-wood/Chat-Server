@@ -84,9 +84,12 @@ def chat_client(server_socket, name):
     root = tk.Tk()
     root.title("Chat Client")
 
+    # Make the window resizable
+    root.resizable(True, True)  # Allow resizing both horizontally and vertically
+
     # Chat display area
     chat_display = scrolledtext.ScrolledText(root, state=tk.DISABLED, wrap=tk.WORD, height=20, width=50)
-    chat_display.grid(row=0, column=0, columnspan=3, padx=10, pady=10)
+    chat_display.grid(row=0, column=0, columnspan=3, padx=10, pady=10, sticky="nsew")
 
     # Typing indicator
     typing_label = Label(root, text="", fg="gray", font=("Arial", 10))
@@ -94,7 +97,7 @@ def chat_client(server_socket, name):
 
     # Message entry field
     message_entry = tk.Entry(root, width=40)
-    message_entry.grid(row=2, column=0, padx=10, pady=10)
+    message_entry.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
     typing_flag = [False]  # Flag to track typing status
     message_entry.bind("<KeyPress>", lambda event: notify_typing(server_socket, typing_flag, name))
     message_entry.bind("<KeyRelease>", lambda event: typing_flag.__setitem__(0, False))  # Reset typing flag
@@ -107,6 +110,10 @@ def chat_client(server_socket, name):
     # Emoji picker button
     emoji_button = tk.Button(root, text="😊", command=lambda: open_emoji_picker(message_entry))
     emoji_button.grid(row=2, column=2, padx=10, pady=10)
+
+    # Configure grid weights to make widgets resize properly
+    root.grid_rowconfigure(0, weight=1)  # Allow chat_display to grow vertically
+    root.grid_columnconfigure(0, weight=1)  # Allow chat_display and message_entry to grow horizontally
 
     # Right-click menu for reactions
     def on_right_click(event):
