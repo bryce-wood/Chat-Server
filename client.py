@@ -5,11 +5,25 @@ from tkinter import scrolledtext, Toplevel, Label, Button, Menu
 import time
 
 def add_reaction(server_socket, message, reaction):
-    """Send a reaction to the server."""
+    """
+    Send a reaction to the server.
+
+    Args:
+        server_socket (socket): The server connection socket.
+        message (str): The message being reacted to.
+        reaction (str): The reaction emoji.
+    """
     server_socket.send(f"REACTION:{message}:{reaction}".encode())
 
 def receive_messages(server_socket, chat_display, typing_label):
-    """Receive messages and reactions from the server."""
+    """
+    Receive messages and reactions from the server and display them.
+
+    Args:
+        server_socket (socket): The server connection socket.
+        chat_display (ScrolledText): The chat display widget.
+        typing_label (Label): The typing indicator label.
+    """
     def clear_typing_label():
         """Clear the typing label after a timeout."""
         time.sleep(3)  # Wait for 3 seconds
@@ -19,21 +33,25 @@ def receive_messages(server_socket, chat_display, typing_label):
         try:
             message = server_socket.recv(1024).decode()
             if message.startswith("TYPING:"):
+                # Display typing notifications
                 typing_label.config(text=message[7:])
                 threading.Thread(target=clear_typing_label, daemon=True).start()
             elif message.startswith("REACTION:"):
+                # Display reactions
                 _, original_message, reaction = message.split(":", 2)
                 chat_display.config(state=tk.NORMAL)
                 chat_display.insert(tk.END, f"Reaction to '{original_message.strip()}': {reaction}\n")
                 chat_display.config(state=tk.DISABLED)
                 chat_display.see(tk.END)
             else:
+                # Display regular messages
                 typing_label.config(text="")  # Clear typing indicator
                 chat_display.config(state=tk.NORMAL)
                 chat_display.insert(tk.END, f"{message}\n")
                 chat_display.config(state=tk.DISABLED)
                 chat_display.see(tk.END)
         except ConnectionResetError:
+            # Handle server disconnection
             chat_display.config(state=tk.NORMAL)
             chat_display.insert(tk.END, "Connection lost.\n")
             chat_display.config(state=tk.DISABLED)
@@ -41,7 +59,14 @@ def receive_messages(server_socket, chat_display, typing_label):
             break
 
 def send_message(server_socket, message_entry, chat_display):
-    """Send a message to the server."""
+    """
+    Send a message to the server.
+
+    Args:
+        server_socket (socket): The server connection socket.
+        message_entry (Entry): The message entry widget.
+        chat_display (ScrolledText): The chat display widget.
+    """
     message = message_entry.get()
     if message.strip():
         chat_display.config(state=tk.NORMAL)
@@ -58,7 +83,14 @@ def send_message(server_socket, message_entry, chat_display):
         message_entry.delete(0, tk.END)
 
 def notify_typing(server_socket, typing_flag, name):
-    """Notify the server that the user is typing."""
+    """
+    Notify the server that the user is typing.
+
+    Args:
+        server_socket (socket): The server connection socket.
+        typing_flag (list): A flag to track typing status.
+        name (str): The user's name.
+    """
     if not typing_flag[0]:  # Send typing notification only once per session
         try:
             server_socket.send(f"TYPING:{name} is typing...".encode())
@@ -67,7 +99,12 @@ def notify_typing(server_socket, typing_flag, name):
             pass
 
 def open_emoji_picker(message_entry):
-    """Open a pop-up window with a grid of emojis."""
+    """
+    Open a pop-up window with a grid of emojis.
+
+    Args:
+        message_entry (Entry): The message entry widget.
+    """
     emoji_window = Toplevel()
     emoji_window.title("Pick an Emoji")
     emojis = ["😊", "😂", "❤️", "👍", "🎉", "😢", "😮", "🔥", "🎶", "🌟"]
@@ -76,16 +113,28 @@ def open_emoji_picker(message_entry):
         button.grid(row=i // 5, column=i % 5, padx=5, pady=5)
 
 def insert_emoji(emoji, message_entry):
-    """Insert an emoji into the message entry field."""
+    """
+    Insert an emoji into the message entry field.
+
+    Args:
+        emoji (str): The emoji to insert.
+        message_entry (Entry): The message entry widget.
+    """
     message_entry.insert(tk.END, emoji)
 
 def chat_client(server_socket, name):
-    """Create the chatroom GUI."""
+    """
+    Create the chatroom GUI.
+
+    Args:
+        server_socket (socket): The server connection socket.
+        name (str): The user's name.
+    """
     root = tk.Tk()
     root.title("Chat Client")
 
     # Make the window resizable
-    root.resizable(True, True)  # Allow resizing both horizontally and vertically
+    root.resizable(True, True)
 
     # Chat display area
     chat_display = scrolledtext.ScrolledText(root, state=tk.DISABLED, wrap=tk.WORD, height=20, width=50)
@@ -98,9 +147,9 @@ def chat_client(server_socket, name):
     # Message entry field
     message_entry = tk.Entry(root, width=40)
     message_entry.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
-    typing_flag = [False]  # Flag to track typing status
+    typing_flag = [False]
     message_entry.bind("<KeyPress>", lambda event: notify_typing(server_socket, typing_flag, name))
-    message_entry.bind("<KeyRelease>", lambda event: typing_flag.__setitem__(0, False))  # Reset typing flag
+    message_entry.bind("<KeyRelease>", lambda event: typing_flag.__setitem__(0, False))
     message_entry.bind("<Return>", lambda event: send_message(server_socket, message_entry, chat_display))
 
     # Send button
@@ -111,22 +160,20 @@ def chat_client(server_socket, name):
     emoji_button = tk.Button(root, text="😊", command=lambda: open_emoji_picker(message_entry))
     emoji_button.grid(row=2, column=2, padx=10, pady=10)
 
-    # Configure grid weights to make widgets resize properly
-    root.grid_rowconfigure(0, weight=1)  # Allow chat_display to grow vertically
-    root.grid_columnconfigure(0, weight=1)  # Allow chat_display and message_entry to grow horizontally
+    # Configure grid weights
+    root.grid_rowconfigure(0, weight=1)
+    root.grid_columnconfigure(0, weight=1)
 
     # Right-click menu for reactions
     def on_right_click(event):
         try:
-            # Get the line of text under the cursor
             cursor_index = chat_display.index(f"@{event.x},{event.y}")
-            line_start = f"{cursor_index.split('.')[0]}.0"  # Start of the line
-            line_end = f"{cursor_index.split('.')[0]}.end"  # End of the line
+            line_start = f"{cursor_index.split('.')[0]}.0"
+            line_end = f"{cursor_index.split('.')[0]}.end"
             selected_text = chat_display.get(line_start, line_end).strip()
         except tk.TclError:
-            return  # Exit if no text is found
+            return
 
-        # Create the reaction menu
         reaction_menu = Menu(root, tearoff=0)
         reactions = ["👍", "❤️", "😂", "😮", "😢"]
         for reaction in reactions:
@@ -144,17 +191,25 @@ def chat_client(server_socket, name):
     root.mainloop()
 
 def handle_reaction(server_socket, chat_display, message, reaction):
-    """Handle adding a reaction and displaying it."""
-    # Send the reaction to the server
-    add_reaction(server_socket, message, reaction)
+    """
+    Handle adding a reaction and displaying it.
 
-    # Display the reaction locally for the user
+    Args:
+        server_socket (socket): The server connection socket.
+        chat_display (ScrolledText): The chat display widget.
+        message (str): The message being reacted to.
+        reaction (str): The reaction emoji.
+    """
+    add_reaction(server_socket, message, reaction)
     chat_display.config(state=tk.NORMAL)
     chat_display.insert(tk.END, f"Reaction to '{message}': {reaction} (You)\n")
     chat_display.config(state=tk.DISABLED)
     chat_display.see(tk.END)
 
 def main():
+    """
+    Main function to start the chat client.
+    """
     server_socket = socket.socket()
     hostname = socket.gethostname()
     server_ip = socket.gethostbyname(hostname)
@@ -167,7 +222,6 @@ def main():
     server_socket.connect((server_host, port))
     server_socket.send(name.encode())
 
-    # Start the GUI chat client
     chat_client(server_socket, name)
 
 if __name__ == "__main__":
